@@ -12,8 +12,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Gemini API key is not configured." }, { status: 500 });
     }
 
-    // We use gemini-1.5-flash as it's the fastest model for text chat
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Using an available experimental model for this API key
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-tts-preview" });
 
     const systemInstruction = `
       You are NatureRx AI, an expert in natural remedies and organic health.
