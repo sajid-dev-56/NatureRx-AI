@@ -89,20 +89,28 @@ export default function Chat() {
     setIsLoading(true);
 
     // Mock AI Response (Later connect to Next.js API route / Supabase / Gemini)
-    setTimeout(() => {
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: input }),
+    })
+    .then((res) => res.json())
+    .then((data) => {
       const isEmergency = userMessage.content.toLowerCase().includes("chest pain") || userMessage.content.toLowerCase().includes("bleeding");
       
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: "ai",
-        content: isEmergency 
-          ? "I noticed you mentioned a potentially serious symptom. **Please seek immediate professional medical care or go to an emergency room.** Home remedies are not safe for this condition."
-          : "Based on your symptoms, a warm ginger tea with honey might help soothe your throat. Ginger has strong anti-inflammatory properties (Strong Evidence). Would you like the recipe?",
+        content: data.error ? "Sorry, there was an error processing your request." : data.result,
         isEmergency: isEmergency
       };
       setMessages(prev => [...prev, aiResponse]);
       setIsLoading(false);
-    }, 1500);
+    })
+    .catch((err) => {
+      console.error(err);
+      setIsLoading(false);
+    });
   };
 
   return (

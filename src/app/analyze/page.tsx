@@ -49,35 +49,45 @@ export default function AnalyzePage() {
   };
 
   const processFile = (file: File) => {
-    // Create an object URL for preview
     const imageUrl = URL.createObjectURL(file);
     setSelectedImage(imageUrl);
-    startAnalysis();
+
+    // Convert file to base64
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      startAnalysis(base64);
+    };
   };
 
-  const startAnalysis = () => {
+  const startAnalysis = async (imageBase64: string) => {
     setAppState("scanning");
     
-    // Simulate AI processing time
-    setTimeout(() => {
-      setResult({
-        name: "Aloe Vera (Aloe barbadensis miller)",
-        confidence: 98.5,
-        benefits: [
-          "Soothes sunburns and skin irritations",
-          "Promotes wound healing",
-          "Contains antioxidants and antibacterial properties",
-          "Can help reduce dental plaque (when used as mouthwash)"
-        ],
-        precautions: [
-          "Oral consumption of aloe latex can cause cramping and diarrhea.",
-          "May interact with certain medications (e.g., diabetes drugs)."
-        ],
-        healthStatus: "Needs Attention",
-        diseaseDetails: "Detected mild brown spots on the tips. This is often caused by overwatering or poor drainage. Consider letting the soil dry out completely between waterings."
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64 }),
       });
+      
+      if (!res.ok) throw new Error("Failed to analyze image");
+      
+      const data = await res.json();
+      setResult(data);
+    } catch (error) {
+      console.error(error);
+      setResult({
+        name: "Analysis Failed",
+        confidence: 0,
+        benefits: ["Could not retrieve data."],
+        precautions: ["Please try again later."],
+        healthStatus: "Needs Attention",
+        diseaseDetails: "There was an error communicating with the AI backend."
+      });
+    } finally {
       setAppState("results");
-    }, 4000); // 4 second scan
+    }
   };
 
   const resetAnalysis = () => {
