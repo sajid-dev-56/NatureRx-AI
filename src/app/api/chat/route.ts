@@ -1,19 +1,16 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { NextResponse } from "next/server";
 
-// Initialize Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+// Initialize Groq API
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "" });
 
 export async function POST(req: Request) {
   try {
     const { prompt } = await req.json();
 
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: "Gemini API key is not configured." }, { status: 500 });
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json({ error: "Groq API key is not configured." }, { status: 500 });
     }
-
-    // Using standard gemini-1.5-flash model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const systemInstruction = `
       You are NatureRx AI, an expert in natural remedies and organic health.
@@ -22,16 +19,19 @@ export async function POST(req: Request) {
       you MUST advise them to seek immediate medical help.
     `;
 
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: `${systemInstruction}\n\nUser: ${prompt}` }] }],
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: prompt }
+      ],
+      model: "llama-3.3-70b-versatile",
     });
 
-    const response = await result.response;
-    const text = response.text();
+    const text = chatCompletion.choices[0]?.message?.content || "";
 
     return NextResponse.json({ result: text });
   } catch (error) {
-    console.error("Gemini API Error:", error);
+    console.error("Groq API Error:", error);
     return NextResponse.json({ error: "Failed to process chat." }, { status: 500 });
   }
 }

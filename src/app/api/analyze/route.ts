@@ -1,18 +1,15 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { NextResponse } from "next/server";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "" });
 
 export async function POST(req: Request) {
   try {
     const { imageBase64 } = await req.json();
 
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: "Gemini API key is not configured." }, { status: 500 });
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json({ error: "Groq API key is not configured." }, { status: 500 });
     }
-
-    // Using standard gemini-1.5-flash model
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `
       Analyze this image of a plant. Provide a JSON response ONLY with the following structure:
@@ -26,27 +23,40 @@ export async function POST(req: Request) {
       }
     `;
 
-    const imageParts = [
-      {
-        inlineData: {
-          data: imageBase64.split(",")[1], // Remove the data:image/jpeg;base64, prefix
-          mimeType: "image/jpeg",
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageBase64,
+              },
+            },
+          ],
         },
-      },
-    ];
+      ],
+      model: "llama-3.2-11b-vision-preview",
+    });
 
-    const result = await model.generateContent([prompt, ...imageParts]);
-    const response = await result.response;
+    let text = chatCompletion.choices[0]?.message?.content || "{}";
     
-    // Parse the JSON from the markdown block that Gemini usually returns
-    let text = response.text();
+    // Parse the JSON from the markdown block that LLMs usually return
     text = text.replace(/```json\n?/, "").replace(/```\n?/, "");
     
-    const jsonResult = JSON.parse(text);
+    let jsonResult;
+    try {
+      jsonResult = JSON.parse(text);
+    } catch (e) {
+      console.error("Failed to parse JSON:", text);
+      throw new Error("Invalid JSON format");
+    }
 
     return NextResponse.json(jsonResult);
   } catch (error) {
-    console.error("Gemini Vision API Error:", error);
+    console.error("Groq Vision API Error:", error);
     return NextResponse.json({ error: "Failed to analyze image." }, { status: 500 });
   }
 }
